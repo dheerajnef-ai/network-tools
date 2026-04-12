@@ -1,0 +1,15 @@
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
+# Secrets / local config
+.env
+.env.*
+
+# OS
+.DS_Store
