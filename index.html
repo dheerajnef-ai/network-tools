@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Network Tools</title>
+  <style>
+    :root { --bg:#f5f7fa; --surface:#fff; --border:#e2e8f0; --text:#1e293b; --muted:#64748b; --accent:#2563eb; --accent-h:#1d4ed8; --internal:#7c3aed; --internal-bg:#f3e8ff; --term:#0f172a; --term-t:#e2e8f0; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; font-family:system-ui,sans-serif; font-size:15px; color:var(--text); background:var(--bg); }
+    .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 1.5rem; position:sticky; top:0; z-index:10; }
+    .topbar-inner { max-width:1100px; margin:0 auto; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; min-height:56px; }
+    .brand { font-weight:600; font-size:1rem; }
+    .scope-toggle { display:inline-flex; border:1px solid var(--border); border-radius:999px; overflow:hidden; background:var(--bg); }
+    .scope-toggle button { border:none; padding:0.45rem 1rem; font-size:0.875rem; font-weight:500; cursor:pointer; background:transparent; color:var(--muted); }
+    .scope-toggle button.active.external { background:var(--surface); color:var(--accent); box-shadow:0 0 0 1px var(--border); }
+    .scope-toggle button.active.internal { background:var(--internal-bg); color:var(--internal); box-shadow:0 0 0 1px #ddd6fe; }
+    nav.tabs { display:flex; flex-wrap:wrap; gap:0.25rem; }
+    nav.tabs a { color:var(--muted); text-decoration:none; padding:0.4rem 0.75rem; border-radius:6px; font-size:0.875rem; }
+    nav.tabs a.active { color:var(--accent); font-weight:600; background:#eff6ff; }
+    main { max-width:1100px; margin:0 auto; padding:2rem 1.5rem; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.75rem; margin-bottom:1rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+    h1 { margin:0 0 0.5rem; font-size:1.35rem; }
+    .subtitle { color:var(--muted); margin:0 0 1rem; font-size:0.95rem; }
+    label { display:block; font-weight:500; margin-bottom:0.5rem; font-size:0.9rem; }
+    textarea, input[type="text"], select { width:100%; max-width:100%; padding:0.65rem 0.85rem; border:1px solid var(--border); border-radius:8px; font-size:0.9rem; }
+    textarea { min-height:140px; font-family:ui-monospace,monospace; }
+    .btn { border:none; border-radius:999px; padding:0.6rem 1.4rem; font-weight:600; cursor:pointer; background:var(--accent); color:#fff; font-size:0.9rem; }
+    .btn:hover { background:var(--accent-h); }
+    .btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .actions { display:flex; justify-content:flex-end; margin-top:1rem; }
+    .tip { font-size:0.8rem; color:var(--muted); margin-top:0.5rem; }
+    .badge { font-size:0.75rem; padding:0.2rem 0.5rem; border-radius:4px; font-weight:600; margin-bottom:0.75rem; display:inline-block; }
+    .badge.external { background:#dbeafe; color:#1d4ed8; }
+    .badge.internal { background:var(--internal-bg); color:var(--internal); }
+    .results-table-wrap { margin-top:1rem; overflow-x:auto; display:none; }
+    .results-table-wrap.visible { display:block; }
+    table.results-table { width:100%; border-collapse:collapse; font-size:0.875rem; }
+    table.results-table th, table.results-table td { border:1px solid var(--border); padding:0.65rem 0.75rem; text-align:left; vertical-align:top; }
+    table.results-table th { background:#f1f5f9; font-weight:600; }
+    .muted { color:var(--muted); font-size:0.85rem; }
+    .pills { display:flex; flex-wrap:wrap; gap:0.5rem; margin:1rem 0; }
+    .pill { font-size:0.75rem; padding:0.25rem 0.65rem; border-radius:999px; background:#f1f5f9; border:1px solid var(--border); }
+    .section-label { font-weight:600; margin:1rem 0 0.5rem; }
+    .terminal-out { margin-top:0.5rem; padding:1rem; background:var(--term); color:var(--term-t); border-radius:8px; font-family:ui-monospace,monospace; font-size:0.8rem; white-space:pre-wrap; word-break:break-word; max-height:420px; overflow:auto; display:none; border:1px solid #1e293b; }
+    .terminal-out.visible { display:block; }
+    .page-section { display:none; }
+    .page-section.visible { display:block; }
+    .row-actions { display:flex; flex-wrap:wrap; align-items:flex-end; gap:1rem; margin-top:0.5rem; }
+    .field-grow { flex:1 1 200px; min-width:0; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand" id="brandTitle">External Network Tools</span>
+      <div class="scope-toggle">
+        <button type="button" id="btnExternal" class="active external">External</button>
+        <button type="button" id="btnInternal">Internal</button>
+      </div>
+      <nav class="tabs">
+        <a href="#d" class="active" data-page="domain">Domain Check</a>
+        <a href="#c" data-page="commands">Network Commands</a>
+        <a href="#i" data-page="ip">IP Check</a>
+        <a href="#s" data-page="ssl">SSL Cert Check</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <section id="page-domain" class="page-section visible">
+      <div class="card">
+        <span class="badge external" id="scopeBadge">External DNS</span>
+        <h1>Check hostname DNS &amp; HTTP(S)</h1>
+        <p class="subtitle">One hostname per line. Uses <strong id="scopeWord">external</strong> DNS for the DNS column when selected.</p>
+        <label for="hostnames">Hostnames</label>
+        <textarea id="hostnames" placeholder="example.com&#10;www.google.com" spellcheck="false"></textarea>
+        <p class="tip">One hostname per line.</p>
+        <div class="actions"><button type="button" class="btn" id="runCheck">Run Check</button></div>
+        <div id="domain-results-wrap" class="results-table-wrap">
+          <table class="results-table"><thead><tr><th>Hostname</th><th>DNS</th><th>HTTP — Status</th><th>HTTP — SSL verify</th></tr></thead><tbody id="domain-results-body"></tbody></table>
+        </div>
+      </div>
+    </section>
+    <section id="page-commands" class="page-section">
+      <div class="card">
+        <h1>Network Commands</h1>
+        <div class="row-actions">
+          <div class="field-grow"><label for="cmdTarget">Hostname or IP</label><input type="text" id="cmdTarget" placeholder="www.google.com" /></div>
+          <div><label for="cmdSelect">Run command</label><select id="cmdSelect"><option value="all">All</option><option value="host">Host</option><option value="dig">Dig</option><option value="nslookup">Nslookup</option><option value="ping">Ping</option><option value="nmap">Nmap</option></select></div>
+          <div style="padding-top:1.2rem;"><button type="button" class="btn" id="btnSearch">Search</button></div>
+        </div>
+        <p class="tip">Tip: use “All” for host, dig, nslookup, ping (and nmap if installed).</p>
+        <div class="pills" id="cmdPills" style="display:none;"><span class="pill" id="pillTarget"></span><span class="pill" id="pillCommand"></span></div>
+        <div class="section-label">Host record</div>
+        <pre id="cmdOutput" class="terminal-out"></pre>
+      </div>
+    </section>
+    <section id="page-ip" class="page-section">
+      <div class="card">
+        <h1>IP Info Lookup</h1>
+        <div class="row-actions">
+          <div class="field-grow"><label for="ipInput">IP address</label><input type="text" id="ipInput" placeholder="8.8.8.8" /></div>
+          <div style="padding-top:1.2rem;"><button type="button" class="btn" id="btnIpLookup">Lookup</button></div>
+        </div>
+        <pre id="ipOutput" class="terminal-out"></pre>
+      </div>
+    </section>
+    <section id="page-ssl" class="page-section">
+      <div class="card">
+        <h1>SSL certificate</h1>
+        <label for="sslDomains">Domains (one per line, optional :port)</label>
+        <textarea id="sslDomains" placeholder="www.google.com" spellcheck="false"></textarea>
+        <div class="actions"><button type="button" class="btn" id="btnSsl">Retrieve certificate details</button></div>
+        <pre id="sslOutput" class="terminal-out"></pre>
+      </div>
+    </section>
+  </main>
+  <script>
+(function () {
+  var scope = "external";
+  var brandTitle = document.getElementById("brandTitle");
+  var scopeBadge = document.getElementById("scopeBadge");
+  var scopeWord = document.getElementById("scopeWord");
+  function setScope(n) {
+    scope = n;
+    if (n === "internal") {
+      brandTitle.textContent = "Internal Network Tools";
+      document.getElementById("btnInternal").classList.add("active", "internal");
+      document.getElementById("btnInternal").classList.remove("external");
+      document.getElementById("btnExternal").classList.remove("active", "external", "internal");
+      scopeBadge.textContent = "Internal DNS"; scopeBadge.className = "badge internal"; scopeWord.textContent = "internal";
+    } else {
+      brandTitle.textContent = "External Network Tools";
+      document.getElementById("btnExternal").classList.add("active", "external");
+      document.getElementById("btnInternal").classList.remove("active", "internal", "external");
+      scopeBadge.textContent = "External DNS"; scopeBadge.className = "badge external"; scopeWord.textContent = "external";
+    }
+  }
+  document.getElementById("btnExternal").onclick = function () { setScope("external"); };
+  document.getElementById("btnInternal").onclick = function () { setScope("internal"); };
+
+  var pages = { domain: "page-domain", commands: "page-commands", ip: "page-ip", ssl: "page-ssl" };
+  document.querySelectorAll("nav.tabs a").forEach(function (a) {
+    a.onclick = function (e) { e.preventDefault();
+      document.querySelectorAll("nav.tabs a").forEach(function (x) { x.classList.remove("active"); });
+      a.classList.add("active");
+      var name = a.getAttribute("data-page");
+      Object.keys(pages).forEach(function (k) {
+        document.getElementById(pages[k]).classList.toggle("visible", k === name);
+      });
+    };
+  });
+
+  function postJson(url, body) {
+    return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.text().then(function (text) {
+        var data; try { data = JSON.parse(text); } catch (e) { throw new Error(text || r.statusText); }
+        if (!r.ok) throw new Error((data && data.error) || text);
+        return data;
+      }); });
+  }
+
+  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  document.getElementById("runCheck").onclick = function () {
+    var lines = document.getElementById("hostnames").value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!lines.length) { alert("Enter at least one hostname."); return; }
+    var btn = document.getElementById("runCheck"); btn.disabled = true;
+    postJson("/check", { hostnames: lines, scope: scope }).then(function (data) {
+      var tb = document.getElementById("domain-results-body"); tb.innerHTML = "";
+      (data.results || []).forEach(function (row) {
+        var tr = document.createElement("tr");
+        var h = esc(row.http_status || "");
+        if (row.http_detail) h += '<br><span class="muted">' + esc(row.http_detail) + "</span>";
+        tr.innerHTML = "<td>" + esc(row.hostname) + "</td><td>" + esc(row.dns || "—") + "</td><td>" + h + "</td><td>" + esc(row.ssl_verify || "—") + "</td>";
+        tb.appendChild(tr);
+      });
+      document.getElementById("domain-results-wrap").classList.add("visible");
+    }).catch(function (e) { alert(e.message); }).finally(function () { btn.disabled = false; });
+  };
+
+  document.getElementById("btnSearch").onclick = function () {
+    var out = document.getElementById("cmdOutput");
+    out.classList.add("visible"); out.textContent = "Running…";
+    document.getElementById("cmdPills").style.display = "flex";
+    document.getElementById("pillTarget").textContent = "Target: " + (document.getElementById("cmdTarget").value || "—");
+    document.getElementById("pillCommand").textContent = "Command: " + document.getElementById("cmdSelect").value;
+    postJson("/network-command", { target: document.getElementById("cmdTarget").value, command: document.getElementById("cmdSelect").value, scope: scope })
+      .then(function (d) { out.textContent = d.output || ""; })
+      .catch(function (e) { out.textContent = e.message; });
+  };
+
+  document.getElementById("btnIpLookup").onclick = function () {
+    var out = document.getElementById("ipOutput"); out.classList.add("visible"); out.textContent = "…";
+    postJson("/ip-lookup", { ip: document.getElementById("ipInput").value.trim() })
+      .then(function (d) { out.textContent = JSON.stringify(d, null, 2); })
+      .catch(function (e) { out.textContent = e.message; });
+  };
+
+  document.getElementById("btnSsl").onclick = function () {
+    var lines = document.getElementById("sslDomains").value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var out = document.getElementById("sslOutput"); out.classList.add("visible"); out.textContent = "…";
+    postJson("/ssl-check", { domains: lines }).then(function (data) {
+      var parts = []; (data.outputs || []).forEach(function (o) { parts.push(o.text || ""); parts.push(""); });
+      out.textContent = parts.length ? parts.join("\n") : JSON.stringify(data, null, 2);
+    }).catch(function (e) { out.textContent = e.message; });
+  };
+})();
+  </script>
+</body>
+</html>
