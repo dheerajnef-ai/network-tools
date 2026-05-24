@@ -1,0 +1,4 @@
+# Install on top of requirements.txt when using Cursor MCP:
+#   pip install -r requirements.txt -r requirements-mcp.txt
+-r requirements.txt
+mcp>=1.8.0

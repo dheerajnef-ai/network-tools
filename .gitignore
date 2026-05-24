@@ -10,6 +10,7 @@ __pycache__/
 # Secrets / local config
 .env
 .env.*
+.cursor/mcp.json
 
 # OS
 .DS_Store

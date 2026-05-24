@@ -7,6 +7,7 @@ import ipaddress
 import json
 import os
 import re
+import shutil
 import ssl
 import subprocess
 import sys
@@ -22,7 +23,7 @@ app = Flask(__name__, static_folder=".")
 
 EXTERNAL_NAMESERVERS = ["8.8.8.8", "8.8.4.4"]
 _SAFE_TARGET = re.compile(r"^[a-zA-Z0-9._:\-]+$")
-_MAX_LEN = 253
+_MAX_LEN_HOSTNAME = 253
 PORT = int(os.getenv("PORT", "5050"))
 
 
@@ -144,9 +145,42 @@ def run_checks():
     )
 
 
+def _strip_brackets(zone_stripped: str) -> str:
+    t = zone_stripped.strip()
+    if len(t) >= 2 and t.startswith("[") and t.endswith("]"):
+        inner = t[1:-1].strip()
+        if ":" in inner:
+            return inner.split("%", 1)[0]
+        return inner
+    return t.split("%", 1)[0] if "%" in t else t
+
+
+def _parse_possible_ip(raw: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """Parse IPv4/IPv6 literals; strips optional [brackets] and zone id (%iface). Hostnames → None."""
+    t = raw.strip()
+    if not t:
+        return None
+    if t.startswith("["):
+        end = t.find("]")
+        if end != -1:
+            inner = t[1:end]
+            try:
+                return ipaddress.ip_address(inner.split("%", 1)[0])
+            except ValueError:
+                return None
+    try:
+        return ipaddress.ip_address(_strip_brackets(t))
+    except ValueError:
+        return None
+
+
 def _safe_target(t: str) -> bool:
     t = t.strip()
-    if not t or len(t) > _MAX_LEN:
+    if not t:
+        return False
+    if _parse_possible_ip(t) is not None:
+        return len(t) <= 512
+    if len(t) > _MAX_LEN_HOSTNAME:
         return False
     return bool(_SAFE_TARGET.match(t))
 
@@ -166,26 +200,83 @@ def _run(argv: list[str], timeout: float = 25.0) -> str:
         return str(e)
 
 
+def _ping_argv(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> list[str]:
+    """macOS `ping` is IPv4-only; IPv6 literals need ``ping6`` when available."""
+    if isinstance(addr, ipaddress.IPv6Address):
+        tip = addr.compressed
+        if shutil.which("ping6"):
+            return ["ping6", "-c", "4", tip]
+        # Linux/other: ``ping`` from iputils often supports ``-6``
+        return ["ping", "-6", "-c", "4", "-W", "2", tip]
+    s = str(addr)
+    return ["ping", "-c", "4", s] if sys.platform == "darwin" else ["ping", "-c", "4", "-W", "2", s]
+
+
+def _nmap_argv(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> list[str]:
+    """nmap scans IPv6 only with -6."""
+    base = ["nmap", "-Pn", "-F", "--host-timeout", "20s"]
+    if isinstance(addr, ipaddress.IPv6Address):
+        return base + ["-6", addr.compressed]
+    return base + [str(addr)]
+
+
 def network_command_output(target: str, command: str, scope: str) -> str:
     target = target.strip()
+    parsed_ip = _parse_possible_ip(target)
     if not _safe_target(target):
         return "Invalid hostname or IP."
     command = (command or "all").lower()
     chunks: list[str] = []
+
+    relaxed = command == "all"
+    t_shell = 12.0 if relaxed else 25.0
+    t_ping = 16.0 if relaxed else 20.0
+    t_nmap = 38 if relaxed else 60
+
     if command in ("all", "host"):
-        chunks.append("— host —\n" + _run(["host", target]))
+        chunks.append("— host —\n" + _run(["host", target.split("%", 1)[0]], timeout=t_shell))
+
     if command in ("all", "dig"):
-        if scope == "external":
-            chunks.append("— dig @8.8.8.8 —\n" + _run(["dig", "@8.8.8.8", target, "+noall", "+answer"]))
+        prefix = ["dig", "@8.8.8.8"] if scope == "external" else ["dig"]
+        if parsed_ip is not None:
+            argv = [*prefix, "-x", str(parsed_ip), "+noall", "+answer"]
+            headline = "— dig PTR @8.8.8.8 —" if scope == "external" else "— dig PTR (reverse) —"
         else:
-            chunks.append("— dig —\n" + _run(["dig", target, "+noall", "+answer"]))
+            argv = [*prefix, target.split("%", 1)[0], "+noall", "+answer"]
+            headline = "— dig @8.8.8.8 —" if scope == "external" else "— dig —"
+        chunks.append(headline + "\n" + _run(argv, timeout=t_shell))
+
     if command in ("all", "nslookup"):
-        chunks.append("— nslookup —\n" + _run(["nslookup", target]))
+        chunks.append(
+            "— nslookup —\n" + _run(["nslookup", target.split("%", 1)[0]], timeout=t_shell),
+        )
+
     if command in ("all", "ping"):
-        ping_cmd = ["ping", "-c", "4", target] if sys.platform == "darwin" else ["ping", "-c", "4", "-W", "2", target]
-        chunks.append("— ping —\n" + _run(ping_cmd, timeout=12))
+        if parsed_ip is not None:
+            ping_head = (
+                "— ping6 (IPv6) —"
+                if isinstance(parsed_ip, ipaddress.IPv6Address)
+                else "— ping —"
+            )
+            argv_p = _ping_argv(parsed_ip)
+        else:
+            ping_head = "— ping —"
+            tgt = target.split("%", 1)[0]
+            argv_p = (
+                ["ping", "-c", "4", tgt]
+                if sys.platform == "darwin"
+                else ["ping", "-c", "4", "-W", "2", tgt]
+            )
+        chunks.append(ping_head + "\n" + _run(argv_p, timeout=t_ping))
+
     if command in ("all", "nmap"):
-        chunks.append("— nmap —\n" + _run(["nmap", "-Pn", "-F", target], timeout=60))
+        if parsed_ip is not None:
+            nmap_argv = _nmap_argv(parsed_ip)
+            lbl = "— nmap (-6 IPv6) —\n" if isinstance(parsed_ip, ipaddress.IPv6Address) else "— nmap —\n"
+            chunks.append(lbl + _run(nmap_argv, timeout=t_nmap))
+        else:
+            chunks.append("— nmap —\n" + _run(["nmap", "-Pn", "-F", "--host-timeout", "20s", target.split("%", 1)[0]], timeout=t_nmap))
+
     return "\n\n".join(chunks) if chunks else "Unknown command."
 
 
@@ -209,17 +300,17 @@ def ip_lookup() -> tuple[str, int, dict[str, str]]:
     raw = (data.get("ip") or "").strip()
     if not raw:
         return json.dumps({"error": "Enter an IP address."}), 400, {"Content-Type": "application/json"}
-    try:
-        ipaddress.ip_address(raw)
-    except ValueError:
+    addr = _parse_possible_ip(raw)
+    if addr is None:
         return json.dumps({"error": "Invalid IP address."}), 400, {"Content-Type": "application/json"}
+    slug = addr.compressed
     try:
-        req = Request(f"https://ipinfo.io/{raw}/json", headers={"User-Agent": "NetworkTools/1.0"})
+        req = Request(f"https://ipinfo.io/{slug}/json", headers={"User-Agent": "NetworkTools/1.0"})
         with urlopen(req, timeout=12) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             parsed = json.loads(body)
     except Exception as e:
-        return json.dumps({"error": str(e), "ip": raw}, indent=2), 200, {"Content-Type": "application/json"}
+        return json.dumps({"error": str(e), "ip": slug}, indent=2), 200, {"Content-Type": "application/json"}
     return json.dumps(parsed, indent=2), 200, {"Content-Type": "application/json"}
 
 
@@ -330,4 +421,4 @@ def ssl_check_route():
 
 if __name__ == "__main__":
     print(f"Open: http://127.0.0.1:{PORT}")
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)

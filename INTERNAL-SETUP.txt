@@ -1,0 +1,109 @@
+================================================================================
+INTERNAL MODE — HOW IT WORKS IN THIS PROJECT (AND WHAT NOT TO EXPOSE)
+================================================================================
+
+This file is documentation only. It is safe to commit. Do NOT commit real
+passwords, API keys, internal hostnames you consider secret, or VPN details.
+
+
+--------------------------------------------------------------------------------
+1) WHAT THE TWO MODES MEAN (IN YOUR CODE)
+--------------------------------------------------------------------------------
+
+• "External" DNS in this app uses fixed public resolvers (Google 8.8.8.8 /
+  8.8.4.4 in server.py). Anyone on the internet gets the same kind of answers
+  you would get from public DNS — good for demos and resume projects.
+
+• "Internal" DNS uses your machine’s DEFAULT resolver (whatever your Mac or
+  server is configured to use — often your office/home router or corporate
+  DNS). That can resolve private names (e.g. *.corp.local) that public DNS
+  never sees.
+
+So: internal mode is powerful because it follows YOUR network’s DNS policy.
+That also means it should not be blindly exposed to the whole internet.
+
+
+--------------------------------------------------------------------------------
+2) GITHUB PAGES vs YOUR FLASK SERVER
+--------------------------------------------------------------------------------
+
+• GitHub Pages only hosts STATIC files (e.g. index.html). It does NOT run
+  server.py. Visitors to your github.io link get the HTML/CSS/JS only.
+
+• Features that call Flask APIs (domain checks, commands, etc.) need
+  server.py running somewhere (your laptop, a VM, office server).
+
+• Therefore: your "internal" resolver logic is NOT automatically exposed just
+  because the repo is public — unless YOU run Flask reachable from the internet
+  without protection.
+
+
+--------------------------------------------------------------------------------
+3) IF YOU ADD A SEPARATE "INTERNAL API" LATER
+--------------------------------------------------------------------------------
+
+Recommended pattern:
+
+  A) Public demo (resume)
+     - Static UI on GitHub Pages, OR Flask with ONLY external-safe endpoints.
+
+  B) Internal / office
+     - Same or extended UI, but the browser talks to an API that is ONLY
+       reachable inside VPN or LAN (private IP, firewall, no public DNS).
+
+  C) Configuration
+     - Use an environment variable for the API base URL, e.g. in dev:
+         http://127.0.0.1:5050
+       on office VPN:
+         http://internal-tools.yourcompany.local
+     - Never hardcode internal URLs + secrets in the frontend if the repo is
+       public.
+
+
+--------------------------------------------------------------------------------
+4) SECURITY — "SOMEONE COULD EXTRACT DATA"
+--------------------------------------------------------------------------------
+
+Risks to think about:
+
+  • If your API is reachable from the public internet, attackers may abuse it
+    for reconnaissance (DNS lookups, HTTP probes, SSRF-style attacks depending
+    on what you implement).
+
+  • Anything returned in JSON/HTML to the browser can be copied by anyone who
+    can open the site. Do not return confidential internal inventories, full
+    zone dumps, or credentials.
+
+  • Logs on the server may store hostnames users checked — protect log access.
+
+Mitigations (short list):
+
+  • Bind internal services to 127.0.0.1 (localhost only) when developing.
+
+  • On a network server: firewall allow only office IP ranges or VPN; use
+    HTTPS + authentication if the tool is sensitive.
+
+  • Rate-limit and validate inputs (your server.py already uses basic patterns;
+    extend as you add features).
+
+  • Keep secrets in environment variables or a local .env file; .env is in
+    .gitignore — never commit it.
+
+
+--------------------------------------------------------------------------------
+5) QUICK CHECKLIST BEFORE EXPOSING ANYTHING
+--------------------------------------------------------------------------------
+
+[ ] Is this meant only for internal users? → No public DNS / no public IP.
+
+[ ] Is the repo public? → No secrets in code, no internal-only URLs in commits.
+
+[ ] Do users need to log in? → Add auth if the data is not public.
+
+[ ] GitHub Pages only? → Treat it as a demo UI; document that full features
+    need a private backend.
+
+
+================================================================================
+Questions or changes: edit this file as your deployment model evolves.
+================================================================================

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "network-tools-dashboard": {
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": ["network_tools_mcp_server.py"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
