@@ -1,4 +1,4 @@
-# Install on top of requirements.txt when using Cursor MCP:
+# Optional: extra Python packages when wiring network_tools_mcp_server.py from a capable editor
 #   pip install -r requirements.txt -r requirements-mcp.txt
 -r requirements.txt
 mcp>=1.8.0

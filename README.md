@@ -2,38 +2,38 @@
 
 [![GitHub](https://img.shields.io/badge/repo-network--tools-informational)](https://github.com/dheerajnef-ai/network-tools)
 
-Small **localhost** toolbox for DNS, HTTP probes, everyday shell-style checks (**host**, **dig**, **ping**, **nmap**, …), rough **geo** lookups (ipinfo), and **certificate** summaries. Ships with a plain **Flask + HTML** UI and optional **Cursor MCP** bindings if you already use Cursor.
+Small **localhost** toolbox for DNS, HTTP probes, everyday shell-style checks (**host**, **dig**, **ping**, **nmap**, …), rough **geo** lookups (ipinfo), and **certificate** summaries.
 
-Clone or download: **[github.com/dheerajnef-ai/network-tools](https://github.com/dheerajnef-ai/network-tools)**
+Runs entirely on your machine—nothing here is a hosted service.
 
----
+You get:
 
-## What you actually get
+- **A browser UI** (**Flask + HTML**) at **http://127.0.0.1:5050** by default (**5050** sidesteps Apple’s occasional **AirPlay listener on 5000**.)
+- **An optional companion script** that runs the **same Flask routes** behind the scenes when a **coding editor or terminal workflow** attaches to it—you can ignore that entire path if you only want the webpage.
+- **`obsidian-notes/`** — three Markdown pages (**`START HERE.md`** opens first) meant for reading or pasting into **Obsidian**; symlink or copy the folder wherever you jot notes down.
 
-- **Browser tabs** at **http://127.0.0.1:5050** (default port—change with `PORT=…`; **5050** sidesteps Apple’s occasional **AirPlay listener on 5000**.)
-- Same logic callable from **Cursor** as MCP tools (see below)—handy when you’d rather chat than click.
-- **`obsidian-notes/`** — a short **Markdown** cheat sheet trio you can paste or symlink into an **Obsidian** vault—your notes stay yours; this repo stays code.
+Anything that shells out (**dig**, **nmap**, …) runs **on your machine** with your wiring. Treat it like any other probe kit and read **`INTERNAL-SETUP.txt`** before welcoming the wide internet.
 
-Anything that shells out (**dig**, **nmap**, etc.) obviously runs **on your machine** with your network path. Treat it like any other diagnostic tool; see **`INTERNAL-SETUP.txt`** before exposing it past **localhost**.
+Clone or pull: **[github.com/dheerajnef-ai/network-tools](https://github.com/dheerajnef-ai/network-tools)**
 
 ---
 
 ## First-time setup
 
 ```bash
-cd network-tools-dashboard   # or whatever you cloned it as
+cd network-tools-dashboard         # rename if you cloned elsewhere
 python3 -m venv .venv
-source .venv/bin/activate    # Windows: .venv\Scripts\activate.bat
+source .venv/bin/activate          # Windows: .venv\Scripts\activate.bat
 pip install -r requirements.txt
 ```
 
-Optional MCP support (pulls Flask + MCP SDK):
+**Optional extras** (`requirements-mcp.txt`) bundle the Flask stack **plus** the Python package the companion helper needs—install only when you intend to attach that helper.
 
 ```bash
 pip install -r requirements-mcp.txt
 ```
 
-Helpful-but-not-required on **PATH**: `dig`, `host`, `nslookup`, `ping` / `ping6`, `nmap`.
+Friendly-but-not-required binaries on **`PATH`**: **`dig`**, **`host`**, **`nslookup`**, **`ping` / `ping6`**, **`nmap`**.
 
 ---
 
@@ -42,7 +42,7 @@ Helpful-but-not-required on **PATH**: `dig`, `host`, `nslookup`, `ping` / `ping6
 Easiest:
 
 ```bash
-chmod +x start.sh   # once
+chmod +x start.sh   # once per clone
 ./start.sh
 ```
 
@@ -59,51 +59,52 @@ Another port:
 PORT=8080 python server.py
 ```
 
-Then open **http://127.0.0.1:5050** (adjust port if you changed it).
+Open **http://127.0.0.1:5050** (swap the port when you chose another).
 
 ---
 
-## Obsidian vault (human notes beside the repo)
+## Notes beside Obsidian
 
-Obsidian reads **Markdown on disk**. You don’t have to cram the codebase into your vault—a **symlink** or a **copied folder** works fine.
+Obsidian just reads Markdown from disk—you never have to cram the codebase into your vault.
 
-- **Packaged cheatsheets**: folder **`obsidian-notes/`** in this repo (hub + MCP page + dashboard page, with normal Obsidian **`[[wikilinks]]`** between them).
-- **Short pointer**: root file **`Obsidian-Network-Tools-Dashboard.md`**.
+| Everyday habit | Roughly |
+|----------------|---------|
+| Keep notes beside the checkout | Crack open **`obsidian-notes/`** from this repo. |
+| Prefer them inside a vault folder | Copy the folder, or symlink—one example:  
+`ln -s /full/path/to/.../obsidian-notes /full/path/to/your-vault/MyFolderName` |
 
-Pick what fits you:
+Head note: **`START HERE.md`**. Stick to **that** doorway so you aren’t juggling two introductions.
 
-| Idea | Roughly |
-|------|--------|
-| Notes live only in Cursor | Browse `obsidian-notes/` here. |
-| Notes live in Obsidian | Copy **`obsidian-notes/`** somewhere under your vault, **or** `ln -s /full/path/to/.../obsidian-notes /full/path/to/yourVault/AnyFolderName`. Then open the hub note from that folder in Obsidian. |
-
-Edits in either app hit the **same markdown files** if you symlink—as soon as Obsidian refreshes its view.
+Linked pages talk about routing names your editor advertises—you can skim or skip wholesale if browsers are all you touch.
 
 ---
 
-## Cursor MCP (optional)
+## Optional editor helpers (hands-on hackers only)
 
-Wire-up is boring on purpose:
+If your editor understands **tiny JSON recipes** launching Python helpers beside a project folder, you can reuse the Flask logic without spawning the webpage every time:
 
-1. Use the **`pip install`** line above (`requirements-mcp.txt`).
-2. Open **this repo** as Cursor’s workspace root (`File → Open Folder…`).
-3. Copy **`.cursor/mcp.json.example`** → **`.cursor/mcp.json`** (template only lives in repo; **`mcp.json` itself is gitignored**—keep your local copy.)
-4. **Settings → Tools & MCP** → enable **`network-tools-dashboard`**.
+1. Install **`requirements-mcp.txt`** (`pip`).
+2. Open this repository as **the project root folder** inside your editor.
+3. Start from **`editor-config/mcp-servers.example.json`** and merge that fragment into whichever file your toolchain expects beside the checkout (upstream docs spell the filenames). Keep private copies **out of git**—see **`.gitignore`** for dotted editor folders developers typically generate locally.
+4. Flip the matching toggle in your editor’s **helper / toolchain** preferences (**wording hops between vendors and releases**).
 
-If something flakes out, **`View → Output → MCP`** is the sensible first stop. Broken JSON in **`~/.cursor/mcp.json`** tends to confuse *every* MCP entry—stash shell snippets in Markdown, not in that file.
+**Stuck first boot?**
 
-Rough idea of each tool (**names are for Cursor/automation—you can ignore these if you only use the website**):
+- Machine-specific JSON belongs in folders your editor designates; stray shell scribbles pasted into those manifests break parsers—keep chores in Markdown notes instead.
+- The example points `python` at **`.venv/bin/python`** relative to **`${workspaceFolder}`** — keep the opened project root honest.
 
-| Name | Layperson version |
-|------|---------------------|
-| **network_lookup_smart** | Figures out IPs vs domains vs **`host:port`** and routes to the right check. Optional extra shell bundles (`dig`, `all`, …). |
-| **start_network_dashboard** | Spins up the actual HTTP server like `./start.sh` when the browser tabs need **`fetch`** to succeed. Skips itself if something already answers that port. |
-| **domain_check** | Same bundle as **Domain Check** in the UI. |
-| **network_commands** | **Network Commands** tab (dig / ping / …). IPv6 literals get friendlier tooling where we could wire it (**ping6**, **nmap -6**, PTR **dig**, etc.—see **`server.py`**). |
-| **ip_geo_lookup** | Lookup against ipinfo-style JSON (**IP Check** tab). |
-| **ssl_certificate_inspect** | PEM-ish summary (**SSL** tab); optional **`:port`**. |
+Rough idea of routed names (ignore completely if browsers cover your day):
 
-Most MCP calls don’t *need* the browser server—only the **`start_*`** helper does—because Flask is invoked internally. That’s deliberate so “quick lookup in chat” stays lightweight.
+| Routed name | What it feels like |
+|-------------|---------------------|
+| **network_lookup_smart** | Toss mixed inputs; guesses IP vs **`host:port`** vs hostname, then folds in optional shell chatter (`dig`, `all`, …). |
+| **start_network_dashboard** | Same heartbeat as `./start.sh` whenever the webpage needs HTTP listening; quietly does nothing polite if anything already listens. |
+| **domain_check** | Mirror of **Domain Check** tab logic. |
+| **network_commands** | Mirror of **Network Commands** helpers (IPv6 gets gentler knobs when literals show up — see **`server.py`**). |
+| **ip_geo_lookup** | Mirrors **IP Check** against ipinfo. |
+| **ssl_certificate_inspect** | Mirrors **SSL** tab peeling; `:port` optional. |
+
+Companion script: **`network_tools_mcp_server.py`**. Most routed calls never open a socket—Flask runs in-process for quick answers. Only the **start-…** style route truly revs the public listener when the browser complains about **Failed to fetch**.
 
 ---
 
@@ -111,15 +112,25 @@ Most MCP calls don’t *need* the browser server—only the **`start_*`** helper
 
 | Path | Purpose |
 |------|---------|
-| `server.py` | Flask API + orchestration behind the tabs |
-| `index.html` | Browser UI |
-| `network_tools_mcp_server.py` | MCP sidecar for Cursor |
-| `obsidian-notes/` | Human-readable docs for Obsidian (or Cursor) |
-| `INTERNAL-SETUP.txt` | Internal vs external DNS notes, tighter security wording |
-| `.cursor/mcp.json.example` | Paste → `mcp.json` locally |
+| `server.py` | Flask API + glue behind the tabs |
+| `index.html` | Browser layout |
+| `network_tools_mcp_server.py` | Optional stdio buddy when editors wire it |
+| `obsidian-notes/` | Loose notes + wikilinks |
+| `INTERNAL-SETUP.txt` | Resolver flavor + safety language |
+| `editor-config/mcp-servers.example.json` | Mergeable snippet for editor-hosted helper wiring |
+
+---
+
+## Why GitHub repeats one line beside many files?
+
+GitHub shows **the commit that last touched that path**. Almost everything landed in **one giant commit**, so the website dutifully pastes **the same abbreviated title** on every touched row—not a glitch, just bookkeeping.
+
+Send **smaller follow-up pushes** whenever you tweak different areas (“polish readme”, “adjust IPv6 command bundle”, …) and the table self-sorts again. Rows still quoting your **initial import** (`index.html`, `requirements.txt`, …) simply **never changed** since then—truthful, even if uneven.
+
+Retroactive surgery (**rebase** + **force-push**) can rewrite captions for a lone maintainer vanity pass; ordinary teams leave history alone.
 
 ---
 
 ## One more reminder
 
-Use it on localhost until you intentionally deploy it. Read **`INTERNAL-SETUP.txt`** when you leave your happy path.
+Keep it localhost until you purposefully widen the blast radius. Peek **`INTERNAL-SETUP.txt`** when you’re tempted to punch through the firewall.

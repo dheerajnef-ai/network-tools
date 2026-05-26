@@ -1,0 +1,1 @@
+Snippet collection for attaching **stdio** helpers to Python projects — merge **`mcp-servers.example.json`** into whichever manifest your toolchain documents (upstream guides define filenames and **`${workspaceFolder}`** substitutions).

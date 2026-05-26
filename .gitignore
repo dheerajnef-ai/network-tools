@@ -10,7 +10,10 @@ __pycache__/
 # Secrets / local config
 .env
 .env.*
-.cursor/mcp.json
+
+# Toolchain-local editor folders — keep dotted vendor bundles off GitHub
+
+**/.cu??or/
 
 # OS
 .DS_Store

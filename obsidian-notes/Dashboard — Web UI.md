@@ -1,6 +1,6 @@
 # Dashboard — plain English
 
-Part of [[00 Hub — Network Tools & MCP]]. Cursor folks: [[MCP Server — Cursor reference]].
+[[Network-Tools-Dashboard/START HERE]] · [[Beyond the browser]]
 
 ---
 
@@ -44,9 +44,9 @@ That left rail is simpler than enterprise dashboards on purpose:
 | **IP Check** | “Where-ish is this IP, who-ish owns the netblock?” thanks to ipinfo | `POST /ip-lookup` |
 | **SSL Cert Check** | Leaf cert fingerprints and dates on a platter | `POST /ssl-check` |
 
-External vs Internal mirrors the MCP **`scope`** idea—resolver flavor changes, wording stays mellow.
+External vs Internal toggles resolver flavor on supported paths—same spirit as the optional helper’s **`scope`** flag when you wire it.
 
-IPv6 pasted into **Network Commands** now routes through kinder primitives when possible (**PTR digs**, **`ping6`**, **`nmap -6`**). Bracket literals and stray zone suffixes handled conservatively (`[addr]`, strip `% iface` bits where tools would choke).
+IPv6 pasted into **Network Commands** routes through kinder primitives when possible (**PTR digs**, **`ping6`**, **`nmap -6`**). Bracket literals and stray zone suffixes handled conservatively (`[addr]`, strip `% iface` bits where tools would choke).
 
 ---
 
@@ -58,4 +58,4 @@ Seriously read **`INTERNAL-SETUP.txt`**. localhost first, campfire stories later
 
 ### Nearby notes
 
-[[00 Hub — Network Tools & MCP]] • [[MCP Server — Cursor reference]]
+[[Network-Tools-Dashboard/START HERE]] · [[Beyond the browser]]

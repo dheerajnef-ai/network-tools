@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""MCP server: exposes Network Tools dashboard actions to Cursor via Model Context Protocol.
+"""Optional stdio helper for editors and automation: exposes the Flask routes behind the Network Tools UI.
 
-Uses Flask's test client so ``server.py`` does not need to be running in a browser.
-Requires the same deps as ``server.py`` plus the ``mcp`` package.
+Runs against ``server.py`` through Flask's test client, so HTTP does not need to be listening unless you explicitly
+spawn it. Depends on packages from ``requirements-mcp.txt`` (notably ``mcp`` alongside Flask).
 
-Run by Cursor using stdio (see ``.cursor/mcp.json.example``).
+See ``editor-config/mcp-servers.example.json`` for the mergeable JSON fragment your editor expects next to this checkout.
 """
 
 from __future__ import annotations
@@ -30,13 +30,12 @@ from server import app as flask_app
 mcp = FastMCP(
     "network-tools-dashboard",
     instructions=(
-        "Prefer network_lookup_smart for vague lookups—it auto picks IP geo vs TLS vs domain checks. Other tools "
-        "map to dashboard tabs. Use start_network_dashboard when the user needs the browser UI (fetch/tab); lookup "
-        "tools use Flask internally and work without starting the HTTP server unless they call that tool."
-        " Scope external equals Google DNS knobs; internal follows the Mac resolver. Everything runs locally."
+        "Prefer network_lookup_smart when the user's intent is ambiguous—it classifies IPs, host:port strings, "
+        "and domains. Dedicated helpers mirror each browser panel in this project. Offer start_network_dashboard only "
+        "when localhost HTTP truly must respond (browser previews or fetch failures). Other routes keep Flask "
+        "in-memory. External scope favors Google DNS; internal follows the workstation resolver."
     ),
 )
-
 
 def _project_root() -> Path:
     return Path(__file__).resolve().parent
@@ -48,7 +47,7 @@ def _dashboard_listen_url(port: int) -> str:
 
 def _dashboard_accepting_connections(port: int, timeout_sec: float = 2.0) -> bool:
     try:
-        req = Request(_dashboard_listen_url(port), headers={"User-Agent": "NetworkTools-MCP/1.0"})
+        req = Request(_dashboard_listen_url(port), headers={"User-Agent": "NetworkTools-stdio-helper/1.0"})
         with urlopen(req, timeout=timeout_sec) as r:
             code = int(r.getcode())
             return 200 <= code < 500
@@ -131,22 +130,23 @@ def network_lookup_smart(
     scope: str = "external",
     extras_command: str = "none",
 ) -> str:
-    """PRIMARY smart entry — call this whenever the user wants lookups without naming a dashboard tab.
+    """Fast path when callers mix targets without declaring each flavor.
 
-    Classifies comma or newline tokens:
-    • IPv4/IPv6 literals → ``ip_geo_lookup`` (ipinfo JSON, same dashboard tab).
-    • Values with a trailing ":port" (not plain IPv6) → ``ssl_certificate_inspect`` TLS text.
-    • Plain hostnames / domains → ``domain_check`` (DNS rows + HTTP/HTTPS reachability).
+    Splits commas/newlines then routes each token:
+
+    • IPv4/IPv6 literals → ``ip_geo_lookup`` ipinfo payloads (same pathway as IP Check pane).
+    • Values with trailing ``:port`` (not ambiguous bare IPv6) → ``ssl_certificate_inspect``.
+    • Hostnames/domains → ``domain_check`` (DNS rows + HTTP/HTTPS reachability).
 
     Args:
-        targets: Mixed comma/newline list (IPs, domains, optional host:8443 tails).
-        scope: "external" (Google DNS paths) vs "internal" (system resolver) for Domain Check buckets.
-        extras_command: "none" by default—set "all"|"dig"|"host"|"nslookup"|"ping"|"nmap" to append shell output
-          for each unique classified token (caps at twelve targets).
+        targets: Mixed list (IPs, domains, optional host:8443 tails).
+        scope: "external" favors Google DNS; "internal" follows the workstation resolver.
+        extras_command: "none" by default—or "all"|"dig"|"host"|"nslookup"|"ping"|"nmap" to append bounded shell snippets
+          for unique tokens (currently capped near twelve hosts).
 
-    Limitations:
-    • IPv6 with zone index is accepted when ipaddress recognises it after stripping %suffix.
-    • Advanced shell-only digs still use ``network_commands`` directly if you want a single command only.
+    Notes:
+        IPv6 with zone identifiers is accepted when stripping ``%`` keeps a valid literal.
+        Narrow shell-only digs can still funnel through ``network_commands`` individually.
     """
     s = scope.lower().strip()
     if s not in ("internal", "external"):
@@ -229,11 +229,11 @@ def network_lookup_smart(
 
 @mcp.tool()
 def domain_check(hostnames: str, scope: str = "external") -> str:
-    """Run DNS plus HTTP/TLS connectivity checks like the Dashboard "Domain Check" tab.
+    """DNS plus HTTP/TLS summaries matching the site's Domain Check area.
 
     Args:
-        hostnames: Hostnames separated by newlines or commas (e.g. "example.com, www.google.com").
-        scope: "external" uses public resolvers 8.8.8.8/8.8.4.4; "internal" uses this Mac's resolver.
+        hostnames: Hostnames separated by newlines or commas (e.g. "example.com, www.example.org").
+        scope: "external" favors 8.8.8.8/8.8.4.4; "internal" follows the workstation resolver.
     """
     s = scope.lower().strip()
     if s not in ("internal", "external"):
@@ -294,10 +294,10 @@ def start_network_dashboard(
     port: int | None = None,
     open_browser: bool = False,
 ) -> str:
-    """Start the Network Tools Flask UI in the background (real HTTP server for the browser tabs).
+    """Start the Network Tools Flask listener in the background (real HTTP server for browser panels).
 
-    Most other MCP tools call Flask via an internal test client and do **not** require this. Use when the user
-    wants **http://127.0.0.1:{port}/** (the chosen port — default usually **5050**) in Chrome/Safari, or sees **Failed to fetch** because nothing is listening.
+    Most routed helpers reuse Flask privately and do **not** need this. Use when previews want
+    ``http://127.0.0.1:{port}/`` (default commonly **5050**) or browsers log **Failed to fetch** because nothing listens.
 
     If the port already answers HTTP, skips starting and returns ``already_running: true``.
     Respect env **PORT** (from ``server.py`` defaults) unless ``port`` is passed here.
